@@ -50,6 +50,10 @@ def get_time_of_day(df):
     timeOfDay=pd.cut(pd.DatetimeIndex(df['Time']).hour, bins=[-1,4,11,15,19,23], labels=["Midnight","Morning", "Afternoon", "Evening","Night"]).astype(str)
     return df.assign(Time_Of_Day=timeOfDay)
 
+def get_hour(df):
+    hour = pd.DatetimeIndex(df['Time']).hour
+    return df.assign(Hour=hour)
+
 def fill_age(df):
     age=df['Age_Range'].fillna(round(df['Age_Range'].mean()))
     age=age.astype('int64')
@@ -111,7 +115,7 @@ arm_drop=['Date','Time','Age_Range','Race','Gender','Body_Size','With_Kids','Kid
 arm_select1=['Time_Of_Day','Basket_Size','Basket_colour','Washer_No','Dryer_No','Wash_Item']
 arm_select2=['Time_Of_Day','Gender','Body_Size','Age_Group','Attire','Kids_Category','Spectacles']
 
-cluster_select=['Time_Of_Day','Race','Gender','Age_Group','Age_Range','Body_Size','With_Kids','Kids_Category','Basket_Size']
+cluster_select=['Time_Of_Day','Hour','Race','Gender','Age_Group','Age_Range','Body_Size','With_Kids','Kids_Category','Basket_Size']
 
 classifier1_select=['Time_Of_Day','Race','Gender','Body_Size','With_Kids','Kids_Category','Basket_Size','Basket_colour','Attire','Shirt_Colour','shirt_type','Pants_Colour','pants_type','Wash_Item','Washer_No','Dryer_No']
 
@@ -122,6 +126,7 @@ testSplit=st.sidebar.slider("Test Set Split",0.1,0.9)
 cleaned=(df.pipe(change_to_date)
         .pipe(get_day_col)
         .pipe(get_month_col)
+        .pipe(get_hour)
         .pipe(fill_age)
         .pipe(fill_withKids_yes)
         .pipe(fill_withKids_no)
@@ -207,15 +212,7 @@ st.pyplot()
 
 #############CLUSTERING####################
 st.markdown("## Clustering")
-cluster=(df.pipe(change_to_date)
-        .pipe(fill_age)
-        .pipe(fill_withKids_yes)
-        .pipe(fill_withKids_no)
-        .pipe(fill_null_val)
-        .pipe(get_time_of_day)
-        .pipe(bin_age)
-        .pipe(select_cluster)
-    )
+cluster=(cleaned.pipe(select_cluster))
 
 cluster_dum=pd.get_dummies(cluster,drop_first=True)
 
@@ -250,6 +247,11 @@ plt.ylabel('Age of Customers')
 plt.title('Ages of Clusters')
 st.pyplot()
 
+sns.boxplot(x="label", y="Hour", data=cluster_vis)
+plt.xlabel('Cluster Labels')
+plt.ylabel('Hours visited')
+plt.title('Hours Visited by Clusters')
+st.pyplot()
 #############CLASSIFICATIONS####################
 st.markdown("## Classification Models")
 
