@@ -2,6 +2,8 @@ import streamlit as st
 
 import numpy as np
 import pandas as pd
+import scipy.stats as stats
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn import datasets
@@ -10,6 +12,7 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
@@ -71,9 +74,6 @@ def bin_age(df):
     age_group= pd.cut(x=df['Age_Range'], bins=[20, 30, 40, 50,60]).astype(str)
     return df.assign(Age_Group=age_group)
 
-
-
-
 def mark_washer(df):
     washer = df['Washer_No'].apply(lambda x: "{}{}".format('W_', x))
     return df.assign(Washer_No=washer)
@@ -90,7 +90,6 @@ def mark_pants(df):
     pants = df['pants_type'].apply(lambda x: "{}{}".format('P_', x))
     return df.assign(pants_type=pants)
 
-
 def drop_arm(df):
     return df.drop(columns=arm_drop)
 
@@ -99,7 +98,6 @@ def select_arm1(df):
 
 def select_arm2(df):
     return df[arm_select2]
-
 
 def select_cluster(df):
     return df[cluster_select]
@@ -113,56 +111,12 @@ arm_drop=['Date','Time','Age_Range','Race','Gender','Body_Size','With_Kids','Kid
 arm_select1=['Time_Of_Day','Basket_Size','Basket_colour','Washer_No','Dryer_No','Wash_Item']
 arm_select2=['Time_Of_Day','Gender','Body_Size','Age_Group','Attire','Kids_Category','Spectacles']
 
-
 cluster_select=['Time_Of_Day','Race','Gender','Age_Group','Age_Range','Body_Size','With_Kids','Kids_Category','Basket_Size']
 
 classifier1_select=['Time_Of_Day','Race','Gender','Body_Size','With_Kids','Kids_Category','Basket_Size','Basket_colour','Attire','Shirt_Colour','shirt_type','Pants_Colour','pants_type','Wash_Item','Washer_No','Dryer_No']
-#####################################################################################################################################
 
-def get_dataset(dataset_name):
-    if dataset_name=='Iris':
-        df=datasets.load_iris()
-        #df=pd.read_csv('Laundry_Data.csv')
-    elif dataset_name=='Breast Cancer':
-        df=datasets.load_breast_cancer()
-    else:
-        df=datasets.load_wine()
-
-    X=df.data
-    y=df.target
-
-    return X,y
-
-
-def add_parameter_ui(clf_name):
-    params=dict()
-    if clf_name=='KNN':
-        K=st.sidebar.slider("K",1,15)
-        params['K']=K
-    elif clf_name=='SVM':
-        C=st.sidebar.slider("C",0.01,10.0)
-        params['C']=C
-    else:
-        max_depth=st.sidebar.slider("Max_depth",2,15)
-        n_estimators=st.sidebar.slider("N_estimators",1,100)
-        params['max_depth']=max_depth
-        params['n_estimators']=n_estimators
-
-    return params
-
-def get_classifier(clf_name,params):
-    if clf_name=='KNN':
-        clf=KNeighborsClassifier(n_neighbors=params['K'])
-    elif clf_name=='SVM':
-        clf=SVC(C=params['C'])
-    else:
-        clf=RandomForestClassifier(n_estimators=params['n_estimators'],
-                                    max_depth=params['max_depth'],
-                                    random_state=1)
-
-    return clf
-
-
+#############SIDEBAR####################
+testSplit=st.sidebar.slider("Test Set Split",0.1,0.9)
 
 #############DATASET PIPING####################
 cleaned=(df.pipe(change_to_date)
@@ -179,39 +133,53 @@ cleaned=(df.pipe(change_to_date)
         .pipe(bin_age)
     )
 
-
-#side bar
-testSplit=st.sidebar.slider("Test Set Split",0.1,0.9)
-dataset_name=st.sidebar.selectbox("Select Dataset",('Iris','Breast Cancer','Wine'))
-classifier_name=st.sidebar.selectbox("Select Model",('KNN','SVM','Random Forest','Gaussian'))
-
-
 st.title('Laundry Service Data Mining')
 
 st.markdown("## Original dataset")
 st.write(df)
 st.write("Shape of data: ",df.shape)
-st.markdown("### List of Columns")
-st.write(df.columns)
+# st.markdown("### List of Columns")
+# st.write(df.columns)
 
 st.markdown("## Processed Dataset")
 st.write(cleaned)
 st.write("Shape of data: ",cleaned.shape)
-st.markdown("### List of Columns")
-st.write(cleaned.columns)
+# st.markdown("### List of Columns")
+# st.write(cleaned.columns)
 
+#############EDA####################
 st.markdown("## Exploratory Data Analytics")
 
+###Age of Customers#####
+st.markdown("### Analysis of the Ages of Customers")
+h = cleaned['Age_Range'].tolist()
+h.sort()
+
+hmin=np.min(h)
+hmean = np.mean(h)
+hmax = np.max(h)
+hstd = np.std(h)
+
+pdf = stats.norm.pdf(h, hmean, hstd)
+
+plt.figure(figsize=(15,5))
+plt.subplot(121),plt.plot(h, pdf),plt.title('Normal Distribution of the Age Range of Customers')
+plt.subplot(122),sns.boxplot(cleaned['Age_Range']),plt.title('Boxplot of the Age Range of Customers'),plt.xlabel('Age of Customers')
+st.pyplot()
+
+st.write('Min: ',hmin)
+st.write('Mean: ',hmean)
+st.write('Max: ',hmax)
+st.write('Standard Deviation: ',hstd)
+
 ###Race of individuals analysis#####
+plt.figure(figsize=(10,5))
 st.markdown("### Analysis of the Races")
 ax=sns.countplot(data = cleaned, x = 'Race')
 plt.title ('Customer Visits by Race')
 plt.xlabel('Races')
 plt.ylabel('Number of Customers')
-
 st.pyplot()
-
-
 
 ###With Kids Analysis#####
 st.markdown("### Analysis of Kids")
@@ -228,6 +196,7 @@ plt.xlabel('Number of Customers')
 plt.ylabel('Presence of Kids')
 st.pyplot()
 
+###Hourly Analysis#####
 st.markdown("### Analysis of Time")
 hours=pd.to_datetime(df['Time']).dt.hour
 hours.hist(bins = 23, range=[0,23], facecolor='green')
@@ -236,7 +205,7 @@ plt.xlabel('Hour')
 plt.ylabel('Number of Customers')
 st.pyplot()
 
-###############################################################################
+#############CLUSTERING####################
 st.markdown("## Clustering")
 cluster=(df.pipe(change_to_date)
         .pipe(fill_age)
@@ -263,27 +232,28 @@ for i in range(1,11):
     km.fit(cluster_dum)
     distortions.append(km.inertia_)
 
-plt.plot(range(1, 11), distortions, marker='o')
+plt.plot(range(1, 11), distortions, marker='o',color='orange')
 plt.xlabel('Number of clusters')
 plt.ylabel('Distortion')
 plt.title('Elbow Analysis')
 st.pyplot()
 
-
-km=KMeans(n_clusters=3,random_state=1)
+k=st.slider("No. of Clusters",2,10)
+km=KMeans(n_clusters=k,random_state=1)
 km.fit(cluster_dum)
 cluster_vis=cluster.copy()
 cluster_vis['label']=km.labels_
 
-#ax = sns.relplot(x="Age_Range", y="Time_Of_Day", hue=cluster_vis.label.tolist(), data=cluster_vis)
 sns.boxplot(x="label", y="Age_Range", data=cluster_vis)
 plt.xlabel('Cluster Labels')
 plt.ylabel('Age of Customers')
 plt.title('Ages of Clusters')
 st.pyplot()
 
-##################################################################################
+#############CLASSIFICATIONS####################
 st.markdown("## Classification Models")
+
+###Basket Size#####
 st.markdown("### Basket Size Classification")
 
 X=cleaned[['Race','Basket_colour','Pants_Colour','Shirt_Colour','Attire','Washer_No','Time_Of_Day','Dryer_No','Body_Size','Wash_Item']]
@@ -294,22 +264,25 @@ y=cleaned['Basket_Size']
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = testSplit, random_state = 1)
 
 clf = SVC(kernel='linear',gamma='auto')
-clf.fit(X_train, y_train)
+clf=clf.fit(X_train, y_train)
 y_pred = clf.predict(X_test)
 
 st.write("Accuracy on test set: {:.3f}".format(clf.score(X_test, y_test)))
+st.write("Precision= {:.2f}".format(precision_score(y_test,y_pred, average='micro')))
+st.write('Recall= {:.2f}'. format(recall_score(y_test, y_pred, average='micro')))
 
-raceChoice=st.selectbox('Race',cleaned['Race'].unique())
-bodySizeChoice=st.selectbox('Body_Size',cleaned['Body_Size'].unique())
-timeOfDayChoice=st.selectbox('Time_Of_Day',cleaned['Time_Of_Day'].unique())
-basketColorChoice=st.selectbox('Basket_colour',cleaned['Basket_colour'].unique())
-pantsColorChoice=st.selectbox('Pants_Colour',cleaned['Pants_Colour'].unique())
-shirtColorChoice=st.selectbox('Shirt_Colour',cleaned['Shirt_Colour'].unique())
-attireChoice=st.selectbox('Attire',cleaned['Attire'].unique())
-washerNoChoice=st.selectbox('Washer_No',cleaned['Washer_No'].unique())
-dryerNoChoice=st.selectbox('Dryer_No',cleaned['Dryer_No'].unique())
-washItemChoice=st.selectbox('Wash_Item',cleaned['Wash_Item'].unique())
+# raceChoice=st.selectbox('Race',cleaned['Race'].unique())
+# bodySizeChoice=st.selectbox('Body_Size',cleaned['Body_Size'].unique())
+# timeOfDayChoice=st.selectbox('Time_Of_Day',cleaned['Time_Of_Day'].unique())
+# basketColorChoice=st.selectbox('Basket_colour',cleaned['Basket_colour'].unique())
+# pantsColorChoice=st.selectbox('Pants_Colour',cleaned['Pants_Colour'].unique())
+# shirtColorChoice=st.selectbox('Shirt_Colour',cleaned['Shirt_Colour'].unique())
+# attireChoice=st.selectbox('Attire',cleaned['Attire'].unique())
+# washerNoChoice=st.selectbox('Washer_No',cleaned['Washer_No'].unique())
+# dryerNoChoice=st.selectbox('Dryer_No',cleaned['Dryer_No'].unique())
+# washItemChoice=st.selectbox('Wash_Item',cleaned['Wash_Item'].unique())
 
+###With Kids#####
 st.markdown("### With Kids Classification")
 X=cleaned[['Race','Basket_colour','Pants_Colour','Shirt_Colour','Attire','Washer_No','Time_Of_Day','Dryer_No','Body_Size','Wash_Item']]
 X=X.apply(LabelEncoder().fit_transform)
@@ -318,16 +291,14 @@ y=cleaned['With_Kids']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = testSplit, random_state = 1)
 
+withkidsrf=DecisionTreeClassifier(criterion='entropy',max_depth=10)
+withkidsrf=withkidsrf.fit(X, y)
+y_pred = withkidsrf.predict(X_test)
 
+st.write("Accuracy on test set: {:.3f}".format(withkidsrf.score(X_test, y_test)))
+st.write("Precision= {:.2f}".format(precision_score(y_test,y_pred, average='micro')))
+st.write('Recall= {:.2f}'. format(recall_score(y_test, y_pred, average='micro')))
 
-
-# mcm=multilabel_confusion_matrix(y_test, y_pred,labels=["big", "small", "Unknown"])
-# st.write(mcm)
-# st.write(classification_report(y_test,y_pred))
-# params=add_parameter_ui(classifier_name)
-#
-# #PLOT
-# st.pyplot(plt)
 
 
 
