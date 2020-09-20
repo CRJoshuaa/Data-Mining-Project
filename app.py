@@ -29,18 +29,9 @@ def change_to_date(df):
     date=pd.to_datetime(df['Date'], infer_datetime_format=True)
     return df.assign(Date=date)
 
-def change_to_time(df):
-    time=pd.to_datetime(df['Time'], infer_datetime_format=True)
-    time=pd.DatetimeIndex(time).time
-    return df.assign(Time=time)
-
 def get_day_col(df):
     dayCol=pd.DatetimeIndex(df['Date']).day
     return df.assign(Day=dayCol)
-
-def get_month_col(df):
-    monthCol=pd.DatetimeIndex(df['Date']).month
-    return df.assign(Month=monthCol)
 
 def get_month_col(df):
     monthCol=pd.DatetimeIndex(df['Date']).month
@@ -70,10 +61,6 @@ def fill_withKids_no(df):
     with_kids = np.where(df["Kids_Category"]!='no_kids',df['With_Kids'],'no')
     return df.assign(With_Kids=with_kids)
 
-def W6_big(df):
-    washer = np.where(df["Washer_No"]!=6,df['Basket_Size'],'big')
-    return df.assign(Basket_Size=washer)
-
 def bin_age(df):
     age_group= pd.cut(x=df['Age_Range'], bins=[20, 30, 40, 50,60]).astype(str)
     return df.assign(Age_Group=age_group)
@@ -87,15 +74,14 @@ def mark_dryer(df):
     return df.assign(Dryer_No=dryer)
 
 def mark_shirt(df):
-    shirt = df['shirt_type'].apply(lambda x: "{}{}".format('S_', x))
-    return df.assign(shirt_type=shirt)
+    shirt_t = df['shirt_type'].apply(lambda x: "{}{}".format('S_', x))
+    shirt_c = df['Shirt_Colour'].apply(lambda x: "{}{}".format('S_', x))
+    return df.assign(shirt_type=shirt_t,Shirt_Colour=shirt_c)
 
 def mark_pants(df):
-    pants = df['pants_type'].apply(lambda x: "{}{}".format('P_', x))
-    return df.assign(pants_type=pants)
-
-def drop_arm(df):
-    return df.drop(columns=arm_drop)
+    pants_t = df['pants_type'].apply(lambda x: "{}{}".format('P_', x))
+    pants_c = df['Pants_Colour'].apply(lambda x: "{}{}".format('P_', x))
+    return df.assign(pants_type=pants_t,Pants_Colour=pants_c)
 
 def select_arm1(df):
     return df[arm_select1]
@@ -130,10 +116,12 @@ cleaned=(df.pipe(change_to_date)
         .pipe(fill_age)
         .pipe(fill_withKids_yes)
         .pipe(fill_withKids_no)
-        .pipe(mark_washer)
-        .pipe(mark_dryer)
         .pipe(drop_no)
         .pipe(fill_null_val)
+        .pipe(mark_washer)
+        .pipe(mark_dryer)
+        .pipe(mark_shirt)
+        .pipe(mark_pants)
         .pipe(get_time_of_day)
         .pipe(bin_age)
     )
@@ -269,10 +257,16 @@ clf = SVC(kernel='linear',gamma='auto')
 clf=clf.fit(X_train, y_train)
 y_pred = clf.predict(X_test)
 
+mcm=multilabel_confusion_matrix(y_test, y_pred,labels=["big", "small", "Unknown"])
 st.write("Accuracy on test set: {:.3f}".format(clf.score(X_test, y_test)))
 st.write("Precision= {:.2f}".format(precision_score(y_test,y_pred, average='micro')))
 st.write('Recall= {:.2f}'. format(recall_score(y_test, y_pred, average='micro')))
 
+plt.figure(figsize=(15,5))
+plt.subplot(131),sns.heatmap(mcm[0], square=True, annot=True,fmt= '.0f'),plt.title('Confusion Matrix for Big')
+plt.subplot(132),sns.heatmap(mcm[1], square=True, annot=True,fmt= '.0f'),plt.title('Confusion Matrix for Small')
+plt.subplot(133),sns.heatmap(mcm[2], square=True, annot=True,fmt= '.0f'),plt.title('Confusion Matrix for Unknown')
+st.pyplot()
 # raceChoice=st.selectbox('Race',cleaned['Race'].unique())
 # bodySizeChoice=st.selectbox('Body_Size',cleaned['Body_Size'].unique())
 # timeOfDayChoice=st.selectbox('Time_Of_Day',cleaned['Time_Of_Day'].unique())
@@ -300,20 +294,10 @@ y_pred = withkidsrf.predict(X_test)
 st.write("Accuracy on test set: {:.3f}".format(withkidsrf.score(X_test, y_test)))
 st.write("Precision= {:.2f}".format(precision_score(y_test,y_pred, average='micro')))
 st.write('Recall= {:.2f}'. format(recall_score(y_test, y_pred, average='micro')))
+mcm=multilabel_confusion_matrix(y_test, y_pred,labels=["yes", "no", "Unknown"])
 
-
-
-
-
-
-
-
-
-
-
-# st.success("Successful")
-# st.info("Information")
-# st.warning("Warning")
-# st.error('ERROR')
-# st.exception("TypeERROR('Name not found')")
-# st.write(1+2)
+plt.figure(figsize=(15,5))
+plt.subplot(131),sns.heatmap(mcm[0], square=True, annot=True,fmt= '.0f'),plt.title('Confusion Matrix for Yes')
+plt.subplot(132),sns.heatmap(mcm[1], square=True, annot=True,fmt= '.0f'),plt.title('Confusion Matrix for No')
+plt.subplot(133),sns.heatmap(mcm[2], square=True, annot=True,fmt= '.0f'),plt.title('Confusion Matrix for Unknown')
+st.pyplot()
