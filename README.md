@@ -1,2 +1,2 @@
 # Data-Mining-Project
- Repo for datam mining project
+ Repo for data mining project
